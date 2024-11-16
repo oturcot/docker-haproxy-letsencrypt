@@ -17,7 +17,7 @@ A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate ren
   - [1. Clone the repository](#1-clone-the-repository)
   - [2. Edit Docker Compose configuration](#2-edit-docker-compose-configuration)
   - [3. Edit HAProxy configuration](#3-edit-haproxy-configuration)
-  - [4. systemd service setup](#4-systemd-service-setup)
+  - [4. Systemd service setup](#4-systemd-service-setup)
 - [Running the services](#running-the-services)
 - [Issuing and installing certificates](#issuing-and-installing-certificates)
 - [Verification](#verification)
@@ -41,7 +41,7 @@ This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traf
   - You can set your internal DNS to point directly at the HAProxy server for internal services.
   - In your firewall, port forward the WAN IP on port 443 to the HAProxy server on port 10443 to expose only the desired services.
 - **Watchtower Integration**: Automatically updates Docker containers.
-- **systemd service**: Monitors certificate changes and reloads HAProxy.
+- **Systemd Service**: Monitors certificate changes and reloads HAProxy.
 
 ## Prerequisites
 
@@ -117,7 +117,7 @@ vim haproxy/haproxy.cfg
 - Replace `example.com`, `service1.example.com`, `service2.example.com`, and IP addresses with your actual domains and IPs.
 - Adjust the ACLs and backends according to your needs.
 
-### 4. systemd service setup
+### 4. Systemd service setup
 
 The systemd service files `watch_certificates.sh` and `watch_certificates.service` are included in the repository.
 
@@ -130,7 +130,7 @@ vim watch_certificates.sh
 ```
 
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
-- Replace `example.com` with your actual domain name.
+- Replace `yourdomain.com` with your actual domain name.
 
 Make the script executable:
 
@@ -138,15 +138,41 @@ Make the script executable:
 chmod +x watch_certificates.sh
 ```
 
-#### b. Install the systemd service file
+#### b. Edit the `watch_certificates.service` file
 
-Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directory.
+Before copying the service file, you need to update the path to the `watch_certificates.sh` script. Open the `watch_certificates.service` file and modify the `ExecStart` line to point to the correct script path.
+
+```bash
+vim watch_certificates.service
+```
+
+**Example Modification:**
+
+```ini
+[Unit]
+Description=Watch Certificates and Reload HAProxy
+After=docker.service
+
+[Service]
+Type=simple
+ExecStart=/absolute/path/to/docker-haproxy-letsencrypt/watch_certificates.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
+
+#### c. Install the systemd service file
+
+Copy the modified `watch_certificates.service` file to the `/etc/systemd/system/` directory.
 
 ```bash
 sudo cp watch_certificates.service /etc/systemd/system/
 ```
 
-#### c. Reload and enable the service
+#### d. Reload and enable the service
 
 Reload systemd to recognize the new service, then enable and start it.
 
@@ -156,7 +182,7 @@ sudo systemctl enable watch_certificates.service
 sudo systemctl start watch_certificates.service
 ```
 
-#### d. Verify the service status
+#### e. Verify the service status
 
 Check if the service is running correctly.
 
@@ -239,13 +265,32 @@ docker exec acme_sh acme.sh \
 - The certificate and key files are saved in the specified locations.
 - Since you have a systemd service that monitors certificate changes and reloads HAProxy, you do not need to specify a `--reloadcmd`.
 
-### 4. Ensure correct file naming
+### 4. Change permissions on the key file
+
+After installing the certificate, change the permissions on the key file to ensure HAProxy can access it.
+
+```bash
+chmod 644 /absolute/path/to/docker-haproxy-letsencrypt/certs/yourdomain.com/fullchain.cer.key
+```
+
+**Replace:**
+
+- `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
+- `yourdomain.com` with your actual domain name.
+
+### 5. Ensure correct file naming
 
 Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly and located in the same directory as the certificate.
 
-### 5. Update HAProxy configuration
+### 6. Update HAProxy configuration
 
-Ensure your `haproxy.cfg` points to the correct certificate file:
+Ensure your `haproxy.cfg` points to the correct certificate file. You can automate this step by using a command to insert or update the certificate path in the configuration file.
+
+```bash
+vim /absolute/path/to/docker-haproxy-letsencrypt/haproxy/haproxy.cfg
+```
+
+Ensure the `bind` directive includes the correct certificate path:
 
 ```haproxy
 frontend LAN_Frontend
@@ -253,9 +298,7 @@ frontend LAN_Frontend
     # ... rest of your configuration ...
 ```
 
-Replace `yourdomain.com` with your actual domain name.
-
-### 6. Restart HAProxy
+### 7. Restart HAProxy
 
 Your systemd service should automatically reload HAProxy when the certificate files change. However, you can manually restart HAProxy to ensure it's using the new certificate.
 
