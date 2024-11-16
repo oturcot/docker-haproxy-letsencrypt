@@ -146,22 +146,6 @@ Before copying the service file, you need to update the path to the `watch_certi
 vim watch_certificates.service
 ```
 
-**Example Modification:**
-
-```ini
-[Unit]
-Description=Watch Certificates and Reload HAProxy
-After=docker.service
-
-[Service]
-Type=simple
-ExecStart=/absolute/path/to/docker-haproxy-letsencrypt/watch_certificates.sh
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 
 #### c. Install the systemd service file
