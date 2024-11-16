@@ -146,7 +146,8 @@ Edit the `watch_certificates.sh` script in the project root to reflect the corre
 vim watch_certificates.sh
 ```
 
-Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
+- Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
+- Replace example.com with your actual domain name.
 
 Make the script executable:
 
