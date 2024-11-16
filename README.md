@@ -1,5 +1,7 @@
 # Docker HAProxy with Automatic Let's Encrypt Wildcard Certificate Renewal
 
+[Français 🇫🇷](README.fr.md)
+
 A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate renewal using `acme.sh` and secure DNS-01 validation via Cloudflare API.
 
 ## Table of Contents
@@ -27,23 +29,26 @@ A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate ren
 
 This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traffic with automatic Let's Encrypt wildcard certificate renewal. It leverages `acme.sh` for certificate management and uses Cloudflare's DNS-01 challenge for secure and automated certificate issuance and renewal.
 
+**This project was made and tested on Ubuntu 24.04 LTS.**
+
 ## Features
 
 - **Dockerized HAProxy**: Simplifies deployment and management.
 - **Automatic Certificate Renewal**: Uses `acme.sh` for Let's Encrypt wildcard certificates.
 - **DNS-01 Challenge**: Secure validation via Cloudflare API.
 - **Separate LAN and WAN Frontends**: Listens on ports 80, 443, and 10443.
-  - **LAN Frontend**: Accessible internally on ports 80 and 443.
-  - **WAN Frontend**: Accessible externally on port 10443, allowing you to port forward port 443 on your firewall to port 10443 on the HAProxy server.
+  - **LAN Frontend**: Accessible on ports 80 and 443.
+  - **WAN Frontend**: Accessible on port 10443.
+  - You can set your internal DNS to point directly at the HAProxy server for internal services.
+  - In your firewall, port forward the WAN IP on port 443 to the HAProxy server on port 10443 to expose only the desired services.
 - **Watchtower Integration**: Automatically updates Docker containers.
 - **Systemd Service**: Monitors certificate changes and reloads HAProxy.
 
 ## Prerequisites
 
-- A server running Ubuntu or Debian.
+- A server running **Ubuntu 24.04 LTS** or compatible.
 - Root or sudo access to the server.
 - A domain name with DNS managed by Cloudflare.
-- Docker and Docker Compose installed.
 
 ## Installation
 
@@ -117,8 +122,8 @@ services:
     image: haproxy:lts
     container_name: haproxy
     volumes:
-      - /path/to/your/docker-haproxy-letsencrypt/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - /path/to/your/docker-haproxy-letsencrypt/certs:/etc/haproxy/certs:ro
+      - /absolute/path/to/docker-haproxy-letsencrypt/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/etc/haproxy/certs:ro
     ports:
       - "80:80"
       - "443:443"
@@ -147,13 +152,13 @@ services:
       - CF_EMAIL=${CF_EMAIL}
       - CF_API_KEY=${CF_API_KEY}
     volumes:
-      - /path/to/your/docker-haproxy-letsencrypt/certs:/acme.sh
+      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/acme.sh
     restart: unless-stopped
 ```
 
 **Notes:**
 
-- Replace `/path/to/your/docker-haproxy-letsencrypt/` with the actual path to your project directory.
+- Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 - It's recommended to omit the `version` key in `docker-compose.yml` as per the latest Compose specification.
 
 ### 4. HAProxy Configuration
@@ -257,21 +262,35 @@ Create a `watch_certificates.sh` script in the project root with the following c
 ```bash
 #!/bin/bash
 
-CERT_DIR="/path/to/your/docker-haproxy-letsencrypt/certs/example.com"
+CERT_DIR="/absolute/path/to/docker-haproxy-letsencrypt/certs/example.com"
 HAPROXY_CONTAINER="haproxy"
 
-/usr/bin/inotifywait -m -e close_write,moved_to,create "$CERT_DIR" |
+# Ensure inotifywait and docker are available
+INOTIFYWAIT_PATH="/usr/bin/inotifywait"
+DOCKER_PATH="/usr/bin/docker"
+
+if [ ! -x "$INOTIFYWAIT_PATH" ]; then
+    echo "inotifywait not found at $INOTIFYWAIT_PATH"
+    exit 1
+fi
+
+if [ ! -x "$DOCKER_PATH" ]; then
+    echo "Docker not found at $DOCKER_PATH"
+    exit 1
+fi
+
+$INOTIFYWAIT_PATH -m -e close_write,moved_to,create "$CERT_DIR" |
 while read -r directory events filename; do
   if [[ "$filename" == "fullchain.cer" || "$filename" == "fullchain.cer.key" ]]; then
     echo "Certificate updated, reloading HAProxy..."
-    /usr/bin/docker kill -s HUP $HAPROXY_CONTAINER
+    $DOCKER_PATH kill -s HUP $HAPROXY_CONTAINER
   fi
 done
 ```
 
 **Notes:**
 
-- Replace `/path/to/your/docker-haproxy-letsencrypt/` with the actual path to your project directory.
+- Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 - Ensure the script uses absolute paths for `inotifywait` and `docker`.
 - The script monitors changes to `fullchain.cer` and `fullchain.cer.key` files.
 
@@ -293,7 +312,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/path/to/your/docker-haproxy-letsencrypt/watch_certificates.sh
+ExecStart=/absolute/path/to/docker-haproxy-letsencrypt/watch_certificates.sh
 Restart=on-failure
 User=root
 
@@ -301,7 +320,7 @@ User=root
 WantedBy=multi-user.target
 ```
 
-**Note:** Replace `/path/to/your/docker-haproxy-letsencrypt/` with the actual path to your project directory.
+**Note:** Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 
 #### c. Enable and Start the Service
 
@@ -375,7 +394,7 @@ docker exec acme_sh acme.sh --install-cert -d example.com -d '*.example.com' \
 
 ### 4. Ensure Correct File Naming
 
-Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly.
+Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly and located in the same directory as the certificate.
 
 ### 5. Update HAProxy Configuration
 
