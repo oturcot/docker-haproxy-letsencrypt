@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch for certificate changes and reload HAProxy
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/absolute/path/to/docker-haproxy-letsencrypt/watch_certificates.sh
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target
