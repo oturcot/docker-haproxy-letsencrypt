@@ -178,7 +178,13 @@ Cette commande démarrera les conteneurs HAProxy, Watchtower et `acme_sh` en mod
 
 ## Émission et installation des certificats
 
-### 1. Émettre un nouveau certificat
+### 1. Configurer `acme.sh` pour utiliser Let's Encrypt
+Définissez Let's Encrypt comme Autorité de Certification (CA) par défaut.
+```bash
+docker exec acme_sh acme.sh --set-default-ca --server letsencrypt --home /acme.sh
+```
+
+### 2. Émettre un nouveau certificat
 
 Exécutez la commande suivante pour émettre un nouveau certificat wildcard Let's Encrypt en utilisant le challenge DNS-01 avec Cloudflare.
 
@@ -215,7 +221,7 @@ docker exec \
 
 **Note :** Passer les identifiants API via la ligne de commande peut être insecure. Assurez-vous que votre système est sécurisé et nettoyez l'historique de votre shell si nécessaire.
 
-### 2. Installer le certificat
+### 3. Installer le certificat
 
 Après l'émission du certificat, installez-le en utilisant la commande suivante :
 
@@ -233,11 +239,11 @@ docker exec acme_sh acme.sh \
 - Les fichiers de certificat et de clé sont enregistrés aux emplacements spécifiés.
 - Puisque vous avez un service systemd qui surveille les changements de certificats et recharge HAProxy, vous n'avez pas besoin de spécifier un `--reloadcmd`.
 
-### 3. Assurer la bonne nomination des fichiers
+### 4. Assurer la bonne nomination des fichiers
 
 Assurez-vous que le fichier de clé est nommé `fullchain.cer.key` dans le répertoire des certificats. HAProxy peut automatiquement trouver la clé si elle est nommée correctement et située dans le même répertoire que le certificat.
 
-### 4. Mettre à jour la configuration de HAProxy
+### 5. Mettre à jour la configuration de HAProxy
 
 Assurez-vous que votre `haproxy.cfg` pointe vers le fichier de certificat correct :
 
@@ -249,7 +255,7 @@ frontend LAN_Frontend
 
 Remplacez `yourdomain.com` par votre nom de domaine réel.
 
-### 5. Redémarrer HAProxy
+### 6. Redémarrer HAProxy
 
 Votre service systemd devrait automatiquement recharger HAProxy lorsque les fichiers de certificats changent. Cependant, vous pouvez redémarrer manuellement HAProxy pour vous assurer qu'il utilise le nouveau certificat.
 
