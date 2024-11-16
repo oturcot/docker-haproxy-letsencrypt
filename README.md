@@ -154,7 +154,7 @@ Make the script executable:
 chmod +x watch_certificates.sh
 ```
 
-#### b. Install the Systemd Service File
+#### b. Install the systemd Service File
 
 Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directory.
 
