@@ -15,9 +15,9 @@ A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate ren
   - [3. Install Inotify-tools](#3-install-inotify-tools)
 - [Configuration](#configuration)
   - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Environment Variables](#2-environment-variables)
-  - [3. Docker Compose Setup](#3-docker-compose-setup)
-  - [4. HAProxy Configuration](#4-haproxy-configuration)
+  - [2. Edit Environment Variables](#2-edit-environment-variables)
+  - [3. Edit Docker Compose Configuration](#3-edit-docker-compose-configuration)
+  - [4. Edit HAProxy Configuration](#4-edit-haproxy-configuration)
   - [5. Systemd Service Setup](#5-systemd-service-setup)
 - [Running the Services](#running-the-services)
 - [Issuing and Installing Certificates](#issuing-and-installing-certificates)
@@ -87,212 +87,66 @@ sudo apt install inotify-tools -y
 Clone this repository to your server.
 
 ```bash
-git clone https://github.com/yourusername/docker-haproxy-letsencrypt.git
+git clone https://github.com/oturcot/docker-haproxy-letsencrypt.git
 cd docker-haproxy-letsencrypt
 ```
 
-### 2. Environment Variables
+### 2. Edit Environment Variables
 
-Create an `.env` file to store your Cloudflare API credentials securely.
+The `.env` file in the project root stores your Cloudflare API credentials securely. Edit this file to include your actual Cloudflare email and API key.
 
 ```bash
-touch .env
+vim .env
 ```
 
-Add the following lines to the `.env` file, replacing the placeholders with your actual Cloudflare email and API key:
+Replace the placeholders with your actual Cloudflare email and API key:
 
 ```dotenv
 CF_EMAIL=your-email@example.com
 CF_API_KEY=your-cloudflare-api-key
 ```
 
-**Important:** Add `.env` to your `.gitignore` to prevent sensitive information from being pushed to GitHub.
+**Important:** Ensure that `.env` is included in `.gitignore` to prevent sensitive information from being pushed to GitHub.
+
+### 3. Edit Docker Compose Configuration
+
+The `docker-compose.yml` file is included in the repository. Edit this file to adjust configurations as needed.
 
 ```bash
-echo ".env" >> .gitignore
-```
-
-### 3. Docker Compose Setup
-
-Use the following `docker-compose.yml` configuration. Replace example values with your actual configuration details.
-
-```yaml
-services:
-  haproxy:
-    image: haproxy:lts
-    container_name: haproxy
-    volumes:
-      - /absolute/path/to/docker-haproxy-letsencrypt/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/etc/haproxy/certs:ro
-    ports:
-      - "80:80"
-      - "443:443"
-      - "10443:10443"
-    restart: unless-stopped
-    command: haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: always
-    environment:
-      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
-      TZ: America/Toronto
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_INCLUDE_RESTARTING: "true"
-      WATCHTOWER_DEBUG: "true"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  acme_sh:
-    image: neilpang/acme.sh
-    container_name: acme_sh
-    command: daemon
-    environment:
-      - CF_EMAIL=${CF_EMAIL}
-      - CF_API_KEY=${CF_API_KEY}
-    volumes:
-      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/acme.sh
-    restart: unless-stopped
+vim docker-compose.yml
 ```
 
 **Notes:**
 
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
-- It's recommended to omit the `version` key in `docker-compose.yml` as per the latest Compose specification.
+- Ensure that the paths in the `volumes` section point to the correct locations on your server.
 
-### 4. HAProxy Configuration
+### 4. Edit HAProxy Configuration
 
-Create the `haproxy.cfg` file in the `haproxy` directory with the following content. Replace example domains and IP addresses with your actual data.
+The `haproxy.cfg` file is located in the `haproxy` directory. Edit this file to match your actual domains and backend server IPs.
 
-```haproxy
-global
-    log stdout format raw local0
-    maxconn 4096
-    nbthread 1
-    daemon
-    tune.ssl.default-dh-param 2048
-
-defaults
-    log     global
-    mode    http
-    option  httplog
-    option  dontlognull
-    option  http-keep-alive
-    option  forwardfor
-    retries 3
-    timeout connect 5000
-    timeout client 50000
-    timeout server 50000
-
-frontend LAN_Frontend
-    bind *:80
-    bind *:443 ssl crt /etc/haproxy/certs/example.com/fullchain.cer ssl-min-ver TLSv1.3
-    mode http
-    log global
-    option http-keep-alive
-    option forwardfor
-
-    # Redirect HTTP to HTTPS
-    http-request redirect scheme https unless { ssl_fc }
-
-    # Set X-Forwarded-Proto header
-    http-request set-header X-Forwarded-Proto https if { ssl_fc }
-    http-request set-header X-Forwarded-Proto http if !{ ssl_fc }
-
-    # ACLs for each host
-    acl host_service1 hdr(host) -i service1.example.com
-    acl host_service2 hdr(host) -i service2.example.com
-    # Add more ACLs as needed
-
-    # Use backends based on ACLs
-    use_backend service1_backend if host_service1
-    use_backend service2_backend if host_service2
-    # Add more backends as needed
-
-    # Default backend
-    default_backend default_backend
-
-frontend WAN_Frontend
-    bind *:10443 ssl crt /etc/haproxy/certs/example.com/fullchain.cer ssl-min-ver TLSv1.3
-    mode http
-    log global
-    option http-keep-alive
-    option forwardfor
-
-    # Set X-Forwarded-Proto header
-    http-request set-header X-Forwarded-Proto https if { ssl_fc }
-    http-request set-header X-Forwarded-Proto http if !{ ssl_fc }
-
-    # ACLs for WAN
-    acl host_wan_service hdr(host) -i wan-service.example.com
-    use_backend wan_service_backend if host_wan_service
-
-    # Default backend (optional)
-    default_backend default_backend
-
-# Backends
-backend service1_backend
-    server service1 192.168.1.10:8080
-
-backend service2_backend
-    server service2 192.168.1.11:8080
-
-backend wan_service_backend
-    server wan_service 192.168.2.20:8443 ssl verify none
-
-backend default_backend
-    server default_server 192.168.1.100:80
+```bash
+vim haproxy/haproxy.cfg
 ```
 
 **Notes:**
 
 - Replace `example.com`, `service1.example.com`, `service2.example.com`, and IP addresses with your actual domains and IPs.
-- The WAN frontend listens on port `10443`. You can set your firewall to forward external port `443` to internal port `10443` on the HAProxy server. This way, you expose only the WAN services you intend to.
-- For internal services, you can configure your internal DNS to point directly at the HAProxy server.
+- Adjust the ACLs and backends according to your needs.
 
 ### 5. Systemd Service Setup
 
-Create a systemd service to monitor certificate changes and reload HAProxy accordingly.
+The systemd service files `watch_certificates.sh` and `watch_certificates.service` are included in the repository.
 
-#### a. Create the `watch_certificates.sh` Script
+#### a. Edit the `watch_certificates.sh` Script
 
-Create a `watch_certificates.sh` script in the project root with the following content:
+Edit the `watch_certificates.sh` script in the project root to reflect the correct paths.
 
 ```bash
-#!/bin/bash
-
-CERT_DIR="/absolute/path/to/docker-haproxy-letsencrypt/certs/example.com"
-HAPROXY_CONTAINER="haproxy"
-
-# Ensure inotifywait and docker are available
-INOTIFYWAIT_PATH="/usr/bin/inotifywait"
-DOCKER_PATH="/usr/bin/docker"
-
-if [ ! -x "$INOTIFYWAIT_PATH" ]; then
-    echo "inotifywait not found at $INOTIFYWAIT_PATH"
-    exit 1
-fi
-
-if [ ! -x "$DOCKER_PATH" ]; then
-    echo "Docker not found at $DOCKER_PATH"
-    exit 1
-fi
-
-$INOTIFYWAIT_PATH -m -e close_write,moved_to,create "$CERT_DIR" |
-while read -r directory events filename; do
-  if [[ "$filename" == "fullchain.cer" || "$filename" == "fullchain.cer.key" ]]; then
-    echo "Certificate updated, reloading HAProxy..."
-    $DOCKER_PATH kill -s HUP $HAPROXY_CONTAINER
-  fi
-done
+vim watch_certificates.sh
 ```
 
-**Notes:**
-
-- Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
-- Ensure the script uses absolute paths for `inotifywait` and `docker`.
-- The script monitors changes to `fullchain.cer` and `fullchain.cer.key` files.
+Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 
 Make the script executable:
 
@@ -300,29 +154,15 @@ Make the script executable:
 chmod +x watch_certificates.sh
 ```
 
-#### b. Create the Systemd Service File
+#### b. Install the Systemd Service File
 
-Create a systemd service file named `watch_certificates.service` in `/etc/systemd/system/` with the following content:
+Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directory.
 
-```ini
-[Unit]
-Description=Watch for certificate changes and reload HAProxy
-After=network.target docker.service
-Requires=docker.service
-
-[Service]
-Type=simple
-ExecStart=/absolute/path/to/docker-haproxy-letsencrypt/watch_certificates.sh
-Restart=on-failure
-User=root
-
-[Install]
-WantedBy=multi-user.target
+```bash
+sudo cp watch_certificates.service /etc/systemd/system/
 ```
 
-**Note:** Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
-
-#### c. Enable and Start the Service
+#### c. Reload and Enable the Service
 
 Reload systemd to recognize the new service, then enable and start it.
 
