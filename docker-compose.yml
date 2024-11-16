@@ -1,0 +1,37 @@
+services:
+  haproxy:
+    image: haproxy:lts
+    container_name: haproxy
+    volumes:
+      - /absolute/path/to/docker-haproxy-letsencrypt/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/etc/haproxy/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "10443:10443"
+    restart: unless-stopped
+    command: haproxy -W -db -f /usr/local/etc/haproxy/haproxy.cfg
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    environment:
+      WATCHTOWER_SCHEDULE: "0 0 4 * * *"
+      TZ: America/Toronto
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_DEBUG: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  acme_sh:
+    image: neilpang/acme.sh
+    container_name: acme_sh
+    command: daemon
+    environment:
+      - CF_EMAIL=${CF_EMAIL}
+      - CF_API_KEY=${CF_API_KEY}
+    volumes:
+      - /absolute/path/to/docker-haproxy-letsencrypt/certs:/acme.sh
+    restart: unless-stopped
