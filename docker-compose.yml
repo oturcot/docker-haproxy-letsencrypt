@@ -30,8 +30,8 @@ services:
     container_name: acme_sh
     command: daemon
     environment:
-      - CF_EMAIL=${CF_EMAIL}
-      - CF_API_KEY=${CF_API_KEY}
+      - CF_Email=${CF_EMAIL}
+      - CF_Key=${CF_API_KEY}
     volumes:
       - /absolute/path/to/docker-haproxy-letsencrypt/certs:/acme.sh
     restart: unless-stopped
