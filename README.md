@@ -178,7 +178,13 @@ This command will start the HAProxy, Watchtower, and `acme_sh` containers in det
 
 ## Issuing and installing certificates
 
-### 1. Issue a new certificate
+### 1. Configure `acme.sh` to Use Let's Encrypt
+Set Let's Encrypt as the default Certificate Authority (CA).
+```bash
+docker exec acme_sh acme.sh --set-default-ca --server letsencrypt --home /acme.sh
+```
+
+### 2. Issue a new certificate
 
 Run the following command to issue a new Let's Encrypt wildcard certificate using the DNS-01 challenge with Cloudflare.
 
@@ -215,7 +221,7 @@ docker exec \
 
 **Note:** Passing API credentials via command line can be insecure. Ensure your system is secure and clean up your shell history if necessary.
 
-### 2. Install the certificate
+### 3. Install the certificate
 
 After the certificate is issued, install it using the following command:
 
@@ -233,11 +239,11 @@ docker exec acme_sh acme.sh \
 - The certificate and key files are saved in the specified locations.
 - Since you have a systemd service that monitors certificate changes and reloads HAProxy, you do not need to specify a `--reloadcmd`.
 
-### 3. Ensure correct file naming
+### 4. Ensure correct file naming
 
 Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly and located in the same directory as the certificate.
 
-### 4. Update HAProxy configuration
+### 5. Update HAProxy configuration
 
 Ensure your `haproxy.cfg` points to the correct certificate file:
 
@@ -249,7 +255,7 @@ frontend LAN_Frontend
 
 Replace `yourdomain.com` with your actual domain name.
 
-### 5. Restart HAProxy
+### 6. Restart HAProxy
 
 Your systemd service should automatically reload HAProxy when the certificate files change. However, you can manually restart HAProxy to ensure it's using the new certificate.
 
