@@ -254,12 +254,11 @@ docker exec acme_sh acme.sh \
 After installing the certificate, change the permissions on the key file to ensure HAProxy can access it.
 
 ```bash
-chmod 644 /absolute/path/to/docker-haproxy-letsencrypt/certs/yourdomain.com/fullchain.cer.key
+chmod 644 certs/yourdomain.com/fullchain.cer.key
 ```
 
 **Replace:**
 
-- `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 - `yourdomain.com` with your actual domain name.
 
 ### 5. Ensure correct file naming
@@ -271,7 +270,7 @@ Make sure that the key file is named `fullchain.cer.key` in the certificate dire
 Ensure your `haproxy.cfg` points to the correct certificate file. You can automate this step by using a command to insert or update the certificate path in the configuration file.
 
 ```bash
-vim /absolute/path/to/docker-haproxy-letsencrypt/haproxy/haproxy.cfg
+vim haproxy/haproxy.cfg
 ```
 
 Ensure the `bind` directive includes the correct certificate path:
