@@ -15,10 +15,9 @@ A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate ren
   - [3. Install Inotify-tools](#3-install-inotify-tools)
 - [Configuration](#configuration)
   - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Edit Environment Variables](#2-edit-environment-variables)
-  - [3. Edit Docker Compose Configuration](#3-edit-docker-compose-configuration)
-  - [4. Edit HAProxy Configuration](#4-edit-haproxy-configuration)
-  - [5. Systemd Service Setup](#5-systemd-service-setup)
+  - [2. Edit Docker Compose Configuration](#2-edit-docker-compose-configuration)
+  - [3. Edit HAProxy Configuration](#3-edit-haproxy-configuration)
+  - [4. Systemd Service Setup](#4-systemd-service-setup)
 - [Running the Services](#running-the-services)
 - [Issuing and Installing Certificates](#issuing-and-installing-certificates)
 - [Verification](#verification)
@@ -49,6 +48,7 @@ This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traf
 - A server running **Ubuntu 24.04 LTS** or compatible.
 - Root or sudo access to the server.
 - A domain name with DNS managed by Cloudflare.
+- Your Cloudflare account email and either an **API Token** or **API Key** with permissions to edit DNS records.
 
 ## Installation
 
@@ -91,24 +91,7 @@ git clone https://github.com/oturcot/docker-haproxy-letsencrypt.git
 cd docker-haproxy-letsencrypt
 ```
 
-### 2. Edit Environment Variables
-
-The `.env` file in the project root stores your Cloudflare API credentials securely. Edit this file to include your actual Cloudflare email and API key.
-
-```bash
-vim .env
-```
-
-Replace the placeholders with your actual Cloudflare email and API key:
-
-```dotenv
-CF_EMAIL=your-email@example.com
-CF_API_KEY=your-cloudflare-api-key
-```
-
-**Important:** Ensure that `.env` is included in `.gitignore` to prevent sensitive information from being pushed to GitHub.
-
-### 3. Edit Docker Compose Configuration
+### 2. Edit Docker Compose Configuration
 
 The `docker-compose.yml` file is included in the repository. Edit this file to adjust configurations as needed.
 
@@ -121,7 +104,7 @@ vim docker-compose.yml
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 - Ensure that the paths in the `volumes` section point to the correct locations on your server.
 
-### 4. Edit HAProxy Configuration
+### 3. Edit HAProxy Configuration
 
 The `haproxy.cfg` file is located in the `haproxy` directory. Edit this file to match your actual domains and backend server IPs.
 
@@ -134,20 +117,51 @@ vim haproxy/haproxy.cfg
 - Replace `example.com`, `service1.example.com`, `service2.example.com`, and IP addresses with your actual domains and IPs.
 - Adjust the ACLs and backends according to your needs.
 
-### 5. Systemd Service Setup
+### 4. Systemd Service Setup
 
 The systemd service files `watch_certificates.sh` and `watch_certificates.service` are included in the repository.
 
 #### a. Edit the `watch_certificates.sh` Script
 
-Edit the `watch_certificates.sh` script in the project root to reflect the correct paths.
+Edit the `watch_certificates.sh` script in the project root to reflect the correct paths and domain name.
 
 ```bash
 vim watch_certificates.sh
 ```
 
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
-- Replace example.com with your actual domain name.
+- Replace `example.com` with your actual domain name.
+
+**Example:**
+
+```bash
+#!/bin/bash
+
+CERT_DIR="/absolute/path/to/docker-haproxy-letsencrypt/certs/yourdomain.com"
+HAPROXY_CONTAINER="haproxy"
+
+# Ensure inotifywait and docker are available
+INOTIFYWAIT_PATH="/usr/bin/inotifywait"
+DOCKER_PATH="/usr/bin/docker"
+
+if [ ! -x "$INOTIFYWAIT_PATH" ]; then
+    echo "inotifywait not found at $INOTIFYWAIT_PATH"
+    exit 1
+fi
+
+if [ ! -x "$DOCKER_PATH" ]; then
+    echo "Docker not found at $DOCKER_PATH"
+    exit 1
+fi
+
+$INOTIFYWAIT_PATH -m -e close_write,moved_to,create "$CERT_DIR" |
+while read -r directory events filename; do
+  if [[ "$filename" == "fullchain.cer" || "$filename" == "fullchain.cer.key" ]]; then
+    echo "Certificate updated, reloading HAProxy..."
+    $DOCKER_PATH kill -s HUP $HAPROXY_CONTAINER
+  fi
+done
+```
 
 Make the script executable:
 
@@ -155,7 +169,7 @@ Make the script executable:
 chmod +x watch_certificates.sh
 ```
 
-#### b. Install the systemd Service File
+#### b. Install the Systemd Service File
 
 Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directory.
 
@@ -195,63 +209,78 @@ This command will start the HAProxy, Watchtower, and `acme_sh` containers in det
 
 ## Issuing and Installing Certificates
 
-### 1. Configure `acme.sh` to Use Let's Encrypt
-
-Set Let's Encrypt as the default Certificate Authority (CA).
-
-```bash
-docker exec acme_sh acme.sh --set-default-ca --server letsencrypt --home /acme.sh
-```
-
-### 2. Issue a New Certificate
+### 1. Issue a New Certificate
 
 Run the following command to issue a new Let's Encrypt wildcard certificate using the DNS-01 challenge with Cloudflare.
 
 ```bash
-docker exec acme_sh acme.sh --issue --dns dns_cf -d example.com -d '*.example.com' --keylength 4096 --home /acme.sh
+docker exec \
+  -e CF_Email=your-email@example.com \
+  -e CF_Token=your-cloudflare-api-token \
+  acme_sh acme.sh \
+  --issue \
+  --dns dns_cf \
+  -d yourdomain.com -d '*.yourdomain.com' \
+  --keylength 4096 \
+  --home /acme.sh \
+  --accountemail your-email@example.com
 ```
+
+**Replace:**
+
+- `your-email@example.com` with your actual Cloudflare account email.
+- `your-cloudflare-api-token` with your actual Cloudflare API **Token**. It's recommended to use an API Token with limited permissions.
+- `yourdomain.com` with your actual domain name.
 
 **Explanation:**
 
+- `docker exec`: Runs a command in a running container.
+- `-e CF_Email=...` and `-e CF_Token=...`: Sets the Cloudflare API credentials as environment variables for the command.
+- `acme_sh`: The name of the `acme.sh` container.
+- `acme.sh --issue`: Tells `acme.sh` to issue a new certificate.
 - `--dns dns_cf`: Uses Cloudflare DNS API for DNS-01 validation.
-- `-d example.com -d '*.example.com'`: Specifies the domain and wildcard domain.
+- `-d yourdomain.com -d '*.yourdomain.com'`: Specifies the domain and wildcard domain.
 - `--keylength 4096`: Sets the key length to 4096 bits.
+- `--home /acme.sh`: Sets the home directory for `acme.sh`.
+- `--accountemail your-email@example.com`: Sets your account email with Let's Encrypt.
 
-### 3. Install the Certificate
+**Note:** Passing API credentials via command line can be insecure. Ensure your system is secure and clean up your shell history if necessary.
 
-Install the issued certificate and specify the paths for the key and full chain files.
+### 2. Install the Certificate
+
+After the certificate is issued, install it using the following command:
 
 ```bash
-docker exec acme_sh acme.sh --install-cert -d example.com -d '*.example.com' \
-  --key-file       /acme.sh/example.com/fullchain.cer.key \
-  --fullchain-file /acme.sh/example.com/fullchain.cer \
-  --home           /acme.sh
+docker exec acme_sh acme.sh \
+  --install-cert -d yourdomain.com -d '*.yourdomain.com' \
+    --key-file       /acme.sh/yourdomain.com/fullchain.cer.key \
+    --fullchain-file /acme.sh/yourdomain.com/fullchain.cer \
+    --home           /acme.sh
 ```
 
 **Notes:**
 
-- `acme.sh` saves the key as `fullchain.cer.key` when specified.
+- This command uses the `acme_sh` container to install the certificate.
+- The certificate and key files are saved in the specified locations.
 - Since you have a systemd service that monitors certificate changes and reloads HAProxy, you do not need to specify a `--reloadcmd`.
 
-### 4. Ensure Correct File Naming
+### 3. Ensure Correct File Naming
 
 Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly and located in the same directory as the certificate.
 
-### 5. Update HAProxy Configuration
+### 4. Update HAProxy Configuration
 
 Ensure your `haproxy.cfg` points to the correct certificate file:
 
 ```haproxy
 frontend LAN_Frontend
-    bind *:443 ssl crt /etc/haproxy/certs/example.com/fullchain.cer ssl-min-ver TLSv1.3
+    bind *:443 ssl crt /etc/haproxy/certs/yourdomain.com/fullchain.cer ssl-min-ver TLSv1.3
     # ... rest of your configuration ...
 ```
 
-**Notes:**
+Replace `yourdomain.com` with your actual domain name.
 
-- HAProxy will automatically find the corresponding key file if it is named `fullchain.cer.key` and located in the same directory.
-
-### 6. Restart HAProxy
+### 5. Restart HAProxy
 
 Your systemd service should automatically reload HAProxy when the certificate files change. However, you can manually restart HAProxy to ensure it's using the new certificate.
 
@@ -266,7 +295,7 @@ docker restart haproxy
 Use OpenSSL to verify that HAProxy is serving the new Let's Encrypt certificate.
 
 ```bash
-echo | openssl s_client -connect example.com:443 -servername example.com 2>/dev/null | openssl x509 -noout -issuer -dates
+echo | openssl s_client -connect yourdomain.com:443 -servername yourdomain.com 2>/dev/null | openssl x509 -noout -issuer -dates
 ```
 
 **Expected Output:**
@@ -289,10 +318,15 @@ Look for entries indicating a successful reload.
 
 ### 3. Test Automatic Renewal
 
-Force a certificate renewal to test the entire process, including the systemd service reloading HAProxy.
+To test automatic renewal, you can simulate the renewal process. Since `acme.sh` stores your API credentials in the `account.conf` file within the `/acme.sh` directory, it can renew certificates without needing to re-enter credentials.
+
+Run the following command:
 
 ```bash
-docker exec acme_sh acme.sh --renew -d example.com -d '*.example.com' --force --home /acme.sh
+docker exec acme_sh acme.sh \
+  --renew -d yourdomain.com -d '*.yourdomain.com' \
+  --force \
+  --home /acme.sh
 ```
 
 Monitor the systemd service logs to confirm HAProxy reloads.
@@ -305,9 +339,8 @@ You should see output indicating that HAProxy has been reloaded.
 
 ## Security Best Practices
 
-- **Protect API Keys:** Do not expose your Cloudflare API key in configuration files. Use environment variables or Docker secrets.
-- **Use Scoped API Tokens:** Instead of using your global Cloudflare API key, create an API token with limited permissions (e.g., DNS-01 challenge permissions).
-- **Secure `.env` Files:** Ensure that your `.env` files are not tracked by version control by adding them to `.gitignore`.
+- **Protect API Tokens:** Do not expose your Cloudflare API Token in configuration files or version control. Use the command line to input sensitive information when necessary.
+- **Use Scoped API Tokens:** Create an API Token with limited permissions (e.g., DNS:Edit permissions for specific zones) instead of using your global API Key.
 - **Set Proper File Permissions:** Restrict access to sensitive files like certificates and keys.
 - **Regularly Update Containers:** Use Watchtower to keep your Docker containers up to date with the latest security patches.
 - **Limit Exposure:** Only expose necessary ports and services to the internet. Use firewalls to restrict access where possible.
@@ -318,7 +351,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-**Disclaimer:** Replace all example domain names (`example.com`, `service1.example.com`, etc.) and IP addresses (`192.168.1.10`, `192.168.2.20`, etc.) with your actual domains and server IPs. Ensure that sensitive information such as API keys and passwords are kept secure and not exposed in public repositories.
+**Disclaimer:** Replace all example domain names (`yourdomain.com`, `service1.yourdomain.com`, etc.) and IP addresses (`192.168.1.10`, `192.168.2.20`, etc.) with your actual domains and server IPs. Ensure that sensitive information such as API keys and passwords are kept secure and not exposed in public repositories.
 
 ---
 
