@@ -4,24 +4,24 @@
 
 A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate renewal using `acme.sh` and secure DNS-01 validation via Cloudflare API.
 
-## Table of Contents
+## Table of contents
 
 - [Introduction](#introduction)
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-  - [1. System Update and Upgrade](#1-system-update-and-upgrade)
+  - [1. System update and upgrade](#1-system-update-and-upgrade)
   - [2. Install Docker and Docker Compose](#2-install-docker-and-docker-compose)
   - [3. Install Inotify-tools](#3-install-inotify-tools)
 - [Configuration](#configuration)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Edit Docker Compose Configuration](#2-edit-docker-compose-configuration)
-  - [3. Edit HAProxy Configuration](#3-edit-haproxy-configuration)
-  - [4. Systemd Service Setup](#4-systemd-service-setup)
-- [Running the Services](#running-the-services)
-- [Issuing and Installing Certificates](#issuing-and-installing-certificates)
+  - [1. Clone the repository](#1-clone-the-repository)
+  - [2. Edit Docker Compose configuration](#2-edit-docker-compose-configuration)
+  - [3. Edit HAProxy configuration](#3-edit-haproxy-configuration)
+  - [4. systemd service setup](#4-systemd-service-setup)
+- [Running the services](#running-the-services)
+- [Issuing and installing certificates](#issuing-and-installing-certificates)
 - [Verification](#verification)
-- [Security Best Practices](#security-best-practices)
+- [Security best practices](#security-best-practices)
 - [License](#license)
 
 ## Introduction
@@ -41,7 +41,7 @@ This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traf
   - You can set your internal DNS to point directly at the HAProxy server for internal services.
   - In your firewall, port forward the WAN IP on port 443 to the HAProxy server on port 10443 to expose only the desired services.
 - **Watchtower Integration**: Automatically updates Docker containers.
-- **Systemd Service**: Monitors certificate changes and reloads HAProxy.
+- **systemd service**: Monitors certificate changes and reloads HAProxy.
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traf
 
 ## Installation
 
-### 1. System Update and Upgrade
+### 1. System update and upgrade
 
 Start by updating your system packages to ensure all dependencies are up to date.
 
@@ -82,7 +82,7 @@ sudo apt install inotify-tools -y
 
 ## Configuration
 
-### 1. Clone the Repository
+### 1. Clone the repository
 
 Clone this repository to your server.
 
@@ -91,7 +91,7 @@ git clone https://github.com/oturcot/docker-haproxy-letsencrypt.git
 cd docker-haproxy-letsencrypt
 ```
 
-### 2. Edit Docker Compose Configuration
+### 2. Edit Docker Compose configuration
 
 The `docker-compose.yml` file is included in the repository. Edit this file to adjust configurations as needed.
 
@@ -104,7 +104,7 @@ vim docker-compose.yml
 - Replace `/absolute/path/to/docker-haproxy-letsencrypt/` with the actual absolute path to your project directory.
 - Ensure that the paths in the `volumes` section point to the correct locations on your server.
 
-### 3. Edit HAProxy Configuration
+### 3. Edit HAProxy configuration
 
 The `haproxy.cfg` file is located in the `haproxy` directory. Edit this file to match your actual domains and backend server IPs.
 
@@ -117,11 +117,11 @@ vim haproxy/haproxy.cfg
 - Replace `example.com`, `service1.example.com`, `service2.example.com`, and IP addresses with your actual domains and IPs.
 - Adjust the ACLs and backends according to your needs.
 
-### 4. Systemd Service Setup
+### 4. systemd service setup
 
 The systemd service files `watch_certificates.sh` and `watch_certificates.service` are included in the repository.
 
-#### a. Edit the `watch_certificates.sh` Script
+#### a. Edit the `watch_certificates.sh` script
 
 Edit the `watch_certificates.sh` script in the project root to reflect the correct paths and domain name.
 
@@ -138,7 +138,7 @@ Make the script executable:
 chmod +x watch_certificates.sh
 ```
 
-#### b. Install the Systemd Service File
+#### b. Install the systemd service file
 
 Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directory.
 
@@ -146,7 +146,7 @@ Copy the `watch_certificates.service` file to the `/etc/systemd/system/` directo
 sudo cp watch_certificates.service /etc/systemd/system/
 ```
 
-#### c. Reload and Enable the Service
+#### c. Reload and enable the service
 
 Reload systemd to recognize the new service, then enable and start it.
 
@@ -156,7 +156,7 @@ sudo systemctl enable watch_certificates.service
 sudo systemctl start watch_certificates.service
 ```
 
-#### d. Verify the Service Status
+#### d. Verify the service status
 
 Check if the service is running correctly.
 
@@ -166,7 +166,7 @@ sudo systemctl status watch_certificates.service
 
 You should see an active (running) status.
 
-## Running the Services
+## Running the services
 
 Navigate to your project directory and start the Docker containers using Docker Compose.
 
@@ -176,9 +176,9 @@ docker compose up -d
 
 This command will start the HAProxy, Watchtower, and `acme_sh` containers in detached mode.
 
-## Issuing and Installing Certificates
+## Issuing and installing certificates
 
-### 1. Issue a New Certificate
+### 1. Issue a new certificate
 
 Run the following command to issue a new Let's Encrypt wildcard certificate using the DNS-01 challenge with Cloudflare.
 
@@ -215,7 +215,7 @@ docker exec \
 
 **Note:** Passing API credentials via command line can be insecure. Ensure your system is secure and clean up your shell history if necessary.
 
-### 2. Install the Certificate
+### 2. Install the certificate
 
 After the certificate is issued, install it using the following command:
 
@@ -233,11 +233,11 @@ docker exec acme_sh acme.sh \
 - The certificate and key files are saved in the specified locations.
 - Since you have a systemd service that monitors certificate changes and reloads HAProxy, you do not need to specify a `--reloadcmd`.
 
-### 3. Ensure Correct File Naming
+### 3. Ensure correct file naming
 
 Make sure that the key file is named `fullchain.cer.key` in the certificate directory. HAProxy can automatically find the key if it is named correctly and located in the same directory as the certificate.
 
-### 4. Update HAProxy Configuration
+### 4. Update HAProxy configuration
 
 Ensure your `haproxy.cfg` points to the correct certificate file:
 
@@ -259,7 +259,7 @@ docker restart haproxy
 
 ## Verification
 
-### 1. Check Certificate Details
+### 1. Check certificate details
 
 Use OpenSSL to verify that HAProxy is serving the new Let's Encrypt certificate.
 
@@ -275,7 +275,7 @@ notBefore=Nov 16 07:00:00 2024 GMT
 notAfter=Feb 14 07:00:00 2025 GMT
 ```
 
-### 2. Monitor Logs
+### 2. Monitor logs
 
 Ensure that HAProxy has reloaded successfully by checking its logs.
 
@@ -285,7 +285,7 @@ docker logs haproxy
 
 Look for entries indicating a successful reload.
 
-### 3. Test Automatic Renewal
+### 3. Test automatic renewal
 
 To test automatic renewal, you can simulate the renewal process. Since `acme.sh` stores your API credentials in the `account.conf` file within the `/acme.sh` directory, it can renew certificates without needing to re-enter credentials.
 
@@ -306,7 +306,7 @@ sudo journalctl -u watch_certificates.service -f
 
 You should see output indicating that HAProxy has been reloaded.
 
-## Security Best Practices
+## Security best practices
 
 - **Protect API Tokens:** Do not expose your Cloudflare API Token in configuration files or version control. Use the command line to input sensitive information when necessary.
 - **Use Scoped API Tokens:** Create an API Token with limited permissions (e.g., DNS:Edit permissions for specific zones) instead of using your global API Key.
