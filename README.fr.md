@@ -10,18 +10,18 @@ Une configuration HAProxy Dockerisée avec renouvellement automatique de certifi
 - [Fonctionnalités](#fonctionnalités)
 - [Prérequis](#prérequis)
 - [Installation](#installation)
-  - [1. Mise à jour du système](#1-mise-à-jour-et-amélioration-du-système)
+  - [1. Mise à jour du système](#1-mise-à-jour-du-système)
   - [2. Installer Docker et Docker Compose](#2-installer-docker-et-docker-compose)
   - [3. Installer Inotify-tools](#3-installer-inotify-tools)
 - [Configuration](#configuration)
   - [1. Cloner le dépôt](#1-cloner-le-dépôt)
-  - [2. Modifier la configuration de Docker Compose](#2-modifier-la-configuration-docker-compose)
-  - [3. Modifier la configuration de HAProxy](#3-modifier-la-configuration-haproxy)
+  - [2. Modifier la configuration de Docker Compose](#2-modifier-la-configuration-de-docker-compose)
+  - [3. Modifier la configuration de HAProxy](#3-modifier-la-configuration-de-haproxy)
   - [4. Configuration du service systemd](#4-configuration-du-service-systemd)
 - [Exécution des services](#exécution-des-services)
 - [Émission et installation des certificats](#émission-et-installation-des-certificats)
 - [Vérification](#vérification)
-- [Bonnes pratiques de sécurité](#meilleures-pratiques-de-sécurité)
+- [Bonnes pratiques de sécurité](#bonnes-pratiques-de-sécurité)
 - [Licence](#licence)
 
 ## Introduction
@@ -41,7 +41,7 @@ Ce projet configure HAProxy dans un conteneur Docker pour gérer le trafic HTTP 
   - Vous pouvez configurer votre DNS interne pour pointer directement vers le serveur HAProxy pour les services internes.
   - Dans votre pare-feu, redirigez le port 443 de l'IP WAN vers le serveur HAProxy sur le port 10443 pour exposer uniquement les services souhaités.
 - **Intégration Watchtower** : Met automatiquement à jour les conteneurs Docker.
-- **service systemd** : Surveille les changements de certificats et recharge HAProxy.
+- **Service systemd** : Surveille les changements de certificats et recharge HAProxy.
 
 ## Prérequis
 
@@ -130,7 +130,7 @@ vim watch_certificates.sh
 ```
 
 - Remplacez `/absolute/path/to/docker-haproxy-letsencrypt/` par le chemin absolu réel vers votre répertoire de projet.
-- Remplacez `example.com` par votre nom de domaine réel.
+- Remplacez `yourdomain.com` par votre nom de domaine réel.
 
 Rendez le script exécutable :
 
@@ -138,15 +138,25 @@ Rendez le script exécutable :
 chmod +x watch_certificates.sh
 ```
 
-#### b. Installer le fichier de service systemd
+#### b. Modifier le fichier `watch_certificates.service`
 
-Copiez le fichier `watch_certificates.service` dans le répertoire `/etc/systemd/system/`.
+Avant de copier le fichier de service, vous devez mettre à jour le chemin vers le script `watch_certificates.sh`. Ouvrez le fichier `watch_certificates.service` et modifiez la ligne `ExecStart` pour qu'elle pointe vers le bon chemin du script.
+
+```bash
+vim watch_certificates.service
+```
+
+- Remplacez `/absolute/path/to/docker-haproxy-letsencrypt/` par le chemin absolu réel vers votre répertoire de projet.
+
+#### c. Installer le fichier de service systemd
+
+Copiez le fichier `watch_certificates.service` modifié dans le répertoire `/etc/systemd/system/`.
 
 ```bash
 sudo cp watch_certificates.service /etc/systemd/system/
 ```
 
-#### c. Recharger et activer le service
+#### d. Recharger et activer le service
 
 Rechargez systemd pour reconnaître le nouveau service, puis activez-le et démarrez-le.
 
@@ -156,7 +166,7 @@ sudo systemctl enable watch_certificates.service
 sudo systemctl start watch_certificates.service
 ```
 
-#### d. Vérifier le statut du service
+#### e. Vérifier le statut du service
 
 Vérifiez si le service fonctionne correctement.
 
@@ -180,6 +190,7 @@ Cette commande démarrera les conteneurs HAProxy, Watchtower et `acme_sh` en mod
 
 ### 1. Configurer `acme.sh` pour utiliser Let's Encrypt
 Définissez Let's Encrypt comme Autorité de Certification (CA) par défaut.
+
 ```bash
 docker exec acme_sh acme.sh --set-default-ca --server letsencrypt --home /acme.sh
 ```
@@ -245,15 +256,19 @@ Assurez-vous que le fichier de clé est nommé `fullchain.cer.key` dans le répe
 
 ### 5. Mettre à jour la configuration de HAProxy
 
-Assurez-vous que votre `haproxy.cfg` pointe vers le fichier de certificat correct :
+Assurez-vous que votre `haproxy.cfg` pointe vers le fichier de certificat correct.
+
+```bash
+vim haproxy/haproxy.cfg
+```
+
 
 ```haproxy
 frontend LAN_Frontend
     bind *:443 ssl crt /etc/haproxy/certs/yourdomain.com/fullchain.cer ssl-min-ver TLSv1.3
     # ... reste de votre configuration ...
 ```
-
-Remplacez `yourdomain.com` par votre nom de domaine réel.
+Remplacez 'yourdomain.com' par votre nom de domaine réel.
 
 ### 6. Redémarrer HAProxy
 
@@ -312,7 +327,7 @@ sudo journalctl -u watch_certificates.service -f
 
 Vous devriez voir des sorties indiquant que HAProxy a été rechargé.
 
-## Meilleures pratiques de sécurité
+## Bonnes pratiques de sécurité
 
 - **Protéger les tokens API :** Ne divulguez pas votre Token API Cloudflare dans les fichiers de configuration ou le contrôle de version. Utilisez la ligne de commande pour entrer les informations sensibles lorsque nécessaire.
 - **Utiliser des tokens API restreints :** Créez un Token API avec des permissions limitées (par exemple, permissions DNS:Edit pour des zones spécifiques) au lieu d'utiliser votre Clé API globale.
