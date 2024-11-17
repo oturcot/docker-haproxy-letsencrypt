@@ -10,7 +10,7 @@ A Dockerized HAProxy setup with automatic Let's Encrypt wildcard certificate ren
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-  - [1. System update and upgrade](#1-system-update-and-upgrade)
+  - [1. System update](#1-system-update)
   - [2. Install Docker and Docker Compose](#2-install-docker-and-docker-compose)
   - [3. Install Inotify-tools](#3-install-inotify-tools)
 - [Configuration](#configuration)
@@ -52,7 +52,7 @@ This project sets up HAProxy in a Docker container to manage HTTP and HTTPS traf
 
 ## Installation
 
-### 1. System update and upgrade
+### 1. System update
 
 Start by updating your system packages to ensure all dependencies are up to date.
 
