@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CERT_DIR="/absolute/path/to/docker-haproxy-letsencrypt/certs/example.com"
+CERT_DIR="/absolute/path/to/docker-haproxy-letsencrypt/certs/yourdomain.com"
 HAPROXY_CONTAINER="haproxy"
 
 # Ensure inotifywait and docker are available
