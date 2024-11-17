@@ -268,7 +268,7 @@ frontend LAN_Frontend
     bind *:443 ssl crt /etc/haproxy/certs/yourdomain.com/fullchain.cer ssl-min-ver TLSv1.3
     # ... reste de votre configuration ...
 ```
-Remplacez 'yourdomain.com' par votre nom de domaine réel.
+Remplacez `yourdomain.com` par votre nom de domaine réel.
 
 ### 6. Redémarrer HAProxy
 
