@@ -350,11 +350,3 @@ You should see output indicating that HAProxy has been reloaded.
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-
----
-
-**Disclaimer:** Replace all example domain names (`yourdomain.com`, `service1.yourdomain.com`, etc.) and IP addresses (`192.168.1.10`, `192.168.2.20`, etc.) with your actual domains and server IPs. Ensure that sensitive information such as API keys and passwords are kept secure and not exposed in public repositories.
-
----
-
-If you encounter any issues or have questions, feel free to open an issue or contact the maintainer.
