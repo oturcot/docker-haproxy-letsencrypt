@@ -338,11 +338,3 @@ Vous devriez voir des sorties indiquant que HAProxy a été rechargé.
 ## Licence
 
 Ce projet est sous licence [MIT License](LICENSE).
-
----
-
-**Avertissement :** Remplacez tous les noms de domaine exemples (`yourdomain.com`, `service1.yourdomain.com`, etc.) et les adresses IP (`192.168.1.10`, `192.168.2.20`, etc.) par vos domaines réels et les IP de vos serveurs. Assurez-vous que les informations sensibles telles que les clés API et les mots de passe sont sécurisées et non exposées dans des dépôts publics.
-
----
-
-Si vous rencontrez des problèmes ou avez des questions, n'hésitez pas à ouvrir une issue ou à contacter le mainteneur.
